@@ -68,15 +68,7 @@ public class RegisterStaffUserService {
         if (newUser == null) {
             throw new InvalidUserException("The user to register must be provided.");
         }
-        if (isBlank(newUser.getFullName())) {
-            throw new InvalidUserException("Full name must not be blank.");
-        }
-        if (isBlank(newUser.getIdentificationNumber())) {
-            throw new InvalidUserException("Identification number must not be blank.");
-        }
-        if (isBlank(newUser.getEmail())) {
-            throw new InvalidUserException("Email must not be blank.");
-        }
+        newUser.validateIdentity();
     }
 
     private void validateStaffRole(User newUser) {
@@ -102,9 +94,5 @@ public class RegisterStaffUserService {
         if (userRepositoryPort.existsByIdentificationNumber(newUser)) {
             throw new UserAlreadyExistsException("A user with this identification number is already registered.");
         }
-    }
-
-    private boolean isBlank(String value) {
-        return value == null || value.isBlank();
     }
 }
