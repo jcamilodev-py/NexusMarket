@@ -1,7 +1,10 @@
 package aplication.nexusMarket.domain.models;
 
+import aplication.nexusMarket.domain.exceptions.InvalidSellerException;
+import aplication.nexusMarket.domain.exceptions.InvalidWarehouseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -37,4 +40,45 @@ public class Seller extends User {
 
     /** Not populated by default; loaded on demand by the corresponding consultation service. */
     private List<Product> products = new ArrayList<>();
+
+    public void validateCommercialIdentity() {
+        requireCommercialIdentity(legalBusinessName, taxId);
+    }
+
+    /** Returns the names of the attributes that actually changed, so callers can reject a no-op. */
+    public List<String> updateCommercialIdentity(String newLegalBusinessName, String newTaxId, String newTradeName) {
+        requireCommercialIdentity(newLegalBusinessName, newTaxId);
+        List<String> changedFields = new ArrayList<>();
+        if (!newLegalBusinessName.equals(legalBusinessName)) {
+            changedFields.add("legalBusinessName");
+        }
+        if (!newTaxId.equals(taxId)) {
+            changedFields.add("taxId");
+        }
+        if (!Objects.equals(newTradeName, tradeName)) {
+            changedFields.add("tradeName");
+        }
+        this.legalBusinessName = newLegalBusinessName;
+        this.taxId = newTaxId;
+        this.tradeName = newTradeName;
+        return changedFields;
+    }
+
+    /** The only place where a seller warehouse gets its owner. */
+    public void addWarehouse(SellerWarehouse warehouse) {
+        if (warehouse == null) {
+            throw new InvalidWarehouseException("The warehouse must be provided.");
+        }
+        warehouse.setOwner(this);
+        warehouses.add(warehouse);
+    }
+
+    private void requireCommercialIdentity(String legalName, String taxIdentification) {
+        if (legalName == null || legalName.isBlank()) {
+            throw new InvalidSellerException("Legal business name must not be blank.");
+        }
+        if (taxIdentification == null || taxIdentification.isBlank()) {
+            throw new InvalidSellerException("Tax identification must not be blank.");
+        }
+    }
 }
