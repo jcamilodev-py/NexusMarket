@@ -32,4 +32,10 @@ public class OrderItem {
 
     /** quantity * unitPrice. */
     private BigDecimal subtotal;
+
+    /**
+     * Inventory the line was reserved from; null for digital variants. Dispatch deducts from, and
+     * returns go back to, this same record, since a variant may be stocked in several warehouses.
+     */
+    private Inventory sourceInventory;
 }
