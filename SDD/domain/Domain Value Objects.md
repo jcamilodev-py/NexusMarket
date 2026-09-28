@@ -179,17 +179,23 @@ Only a product in state `PUBLISHED` is visible in the public catalog and may be 
 
 ## Allowed Values
 
-**Source:** DOMINIO 5 — "Estado: Publicado, Suspendido o Descontinuado." All three values are stated literally in the specification.
+**Source:** DOMINIO 5 — "Estado: Publicado, Suspendido o Descontinuado." `PUBLISHED`, `SUSPENDED`, and `DISCONTINUED` are stated literally in the specification. `DRAFT` is inferred: Sección 6.1 places product registration (step 2) and the registration of its initial inventory (step 3) *before* publication (step 4), so a registered product must exist in a state that is not yet visible in the catalog. None of the three literal values describes that state — `SUSPENDED` means a product withdrawn after publication, and `DISCONTINUED` means one removed permanently — so a fourth value is required, in the same way `CANCELLED` completes `OrderStatus`.
 
-| Code         | Name         | Description                              |
-| ------------ | ------------ | ---------------------------------------- |
-| PUBLISHED    | Published    | Visible in the public catalog.           |
-| SUSPENDED    | Suspended    | Temporarily hidden from the catalog.     |
-| DISCONTINUED | Discontinued | Permanently removed from active sale.    |
+| Code         | Name         | Description                                                                 |
+| ------------ | ------------ | --------------------------------------------------------------------------- |
+| DRAFT        | Draft        | Registered by its seller but not yet published. Inferred; see the source note above. |
+| PUBLISHED    | Published    | Visible in the public catalog.                                              |
+| SUSPENDED    | Suspended    | Temporarily hidden from the catalog.                                        |
+| DISCONTINUED | Discontinued | Permanently removed from active sale.                                       |
 
 ## Lifecycle
 
 ```text
+DRAFT
+  │
+  ├──────────────────────────────> DISCONTINUED
+  │
+  ▼
 PUBLISHED
     │
     ├──────────────> SUSPENDED
@@ -199,7 +205,7 @@ PUBLISHED
     └──────────────> DISCONTINUED
 ```
 
-`SUSPENDED` is reversible; `DISCONTINUED` is terminal.
+Every product is registered in `DRAFT`. `SUSPENDED` is reversible; `DISCONTINUED` is terminal. A draft product that will never be sold can be discontinued directly, without passing through the public catalog.
 
 ---
 
@@ -238,15 +244,16 @@ Inventory movements are the historical record of every stock variation, while `I
 
 ## Allowed Values
 
-**Source:** DOMINIO 6 — "Movimientos: Ingreso, Reserva, Salida por venta, Ajuste y Devolución." All five values are stated literally in the specification.
+**Source:** DOMINIO 6 — "Movimientos: Ingreso, Reserva, Salida por venta, Ajuste y Devolución." The first five values are stated literally in the specification. `RESERVATION_RELEASE` is inferred: the *Domain Model* requires every change to `availableQuantity` or `reservedQuantity` to be recorded as a movement, and cancelling an unpaid order moves reserved units back to available stock. None of the literal values describes that change — `ADJUSTMENT` is a manual correction of the stock quantity, not the undoing of a reservation — so recording it under any of them would misrepresent what happened.
 
-| Code          | Name          | Description                                            |
-| ------------- | ------------- | ------------------------------------------------------ |
-| INBOUND       | Inbound       | Stock entering the warehouse.                          |
-| RESERVATION   | Reservation   | Stock reserved for a pending order.                    |
-| SALE_OUTBOUND | Sale Outbound | Stock leaving the warehouse due to a confirmed sale.   |
-| ADJUSTMENT    | Adjustment    | Manual correction of the stock quantity.               |
-| RETURN        | Return        | Stock re-entering due to an approved product return.   |
+| Code                | Name                | Description                                                        |
+| ------------------- | ------------------- | ------------------------------------------------------------------ |
+| INBOUND             | Inbound             | Stock entering the warehouse.                                      |
+| RESERVATION         | Reservation         | Stock reserved for a pending order.                                |
+| RESERVATION_RELEASE | Reservation Release | Reserved stock returned to available stock because its order was cancelled. Inferred; see the source note above. |
+| SALE_OUTBOUND       | Sale Outbound       | Stock leaving the warehouse due to a confirmed sale.               |
+| ADJUSTMENT          | Adjustment          | Manual correction of the stock quantity.                           |
+| RETURN              | Return              | Stock re-entering due to an approved product return.               |
 
 ---
 
@@ -275,7 +282,7 @@ The status describes the current state of the order, while its operations provid
 | PAID            | Paid                | Payment confirmed; the fulfilment process begins and the invoice is issued.                                                            |
 | DISPATCHED      | Dispatched          | The first shipment of the order has physically left the warehouse.                                                                     |
 | DELIVERED       | Delivered / Finished | Every shipment has been delivered; the order is closed and can no longer be modified.                                                  |
-| CANCELLED       | Cancelled           | Order terminated without completing delivery. Inferred; see the source note above.                                                     |
+| CANCELLED       | Cancelled           | Order terminated before its payment was confirmed. Inferred; see the source note above.                                                |
 
 ## Lifecycle
 
@@ -291,8 +298,6 @@ PENDING_PAYMENT
   ▼
 PAID
   │
-  ├──────────────> CANCELLED
-  │
   ├──────────────> DELIVERED   (orders composed exclusively of digital lines)
   │
   ▼
@@ -303,6 +308,8 @@ DELIVERED
 ```
 
 `DELIVERED` and `CANCELLED` are terminal. An order in `DELIVERED` can no longer be modified under any circumstance (Sección 11).
+
+An order can only be cancelled while in `PENDING_PAYMENT`. Once paid, the buyer's money has been collected, and the only reimbursement path the specification describes is a `Refund` originated by a return (OBJ-11); allowing cancellation after payment would require a second reimbursement path that the specification does not support.
 
 ---
 
@@ -498,47 +505,57 @@ represents the event that caused the order to become paid.
 
 **Source:** Derived from the business events identified across the specification — user and seller onboarding (DOMINIO 1, DOMINIO 3, Sección 6.1 step 1), warehouse administration (DOMINIO 4), catalog publication (DOMINIO 5, Sección 6.1 steps 2 and 4), inventory movements (DOMINIO 6), the cart and order lifecycle (DOMINIO 7, OBJ-07, OBJ-08, Sección 6.1 steps 5–8), billing (OBJ-09), logistics (OBJ-10), and the return/refund flow (OBJ-11) — so that the `AuditLog` covers the full traceability scope required by OBJ-12 and by the commitment stated in Sección 1.
 
-The values are grouped by the business area they belong to. Each value corresponds to an action listed in the *Examples of Generated Operations* of the entities in the *Domain Model*.
+The values are grouped by the business area they belong to. Each value corresponds to an action listed in the *Examples of Generated Operations* of the entities in the *Domain Model*, and is produced by at least one service of the *Domain Services* catalog.
+
+The values marked **Inferred** below were added when the *Domain Services* catalog was defined: each one records a service that changes the state of an entity — maintaining information the specification places under administration (OBJ-02, OBJ-03, OBJ-04, OBJ-05, OBJ-06, OBJ-07), or completing a lifecycle already present in this document — and that no other value described. Without them, those state changes would leave no trace in the `AuditLog`, contradicting Sección 1.
 
 ### User Operations
 
-| Code                | Name                | Description                                                    |
-| ------------------- | ------------------- | -------------------------------------------------------------- |
-| USER_REGISTRATION   | User Registration   | A user was registered in the platform.                         |
-| USER_STATUS_CHANGE  | User Status Change  | The operational status of a user was modified.                 |
-| BUYER_REGISTRATION  | Buyer Registration  | A buyer was registered in the platform.                        |
-| SELLER_REGISTRATION | Seller Registration | A seller was onboarded by an administrator, with their first warehouse. |
+| Code                           | Name                           | Description                                                    |
+| ------------------------------ | ------------------------------ | -------------------------------------------------------------- |
+| USER_REGISTRATION              | User Registration              | A user was registered in the platform.                         |
+| USER_STATUS_CHANGE             | User Status Change             | The operational status of a user was modified.                 |
+| BUYER_REGISTRATION             | Buyer Registration             | A buyer was registered in the platform.                        |
+| BUYER_PROFILE_UPDATE           | Buyer Profile Update           | The delivery addresses of a buyer were modified. **Inferred** (OBJ-03, DOMINIO 2). |
+| BUYER_COMMERCIAL_STATUS_CHANGE | Buyer Commercial Status Change | The commercial status of a buyer was modified. **Inferred** (DOMINIO 2, "Estado comercial"). |
+| SELLER_REGISTRATION            | Seller Registration            | A seller was onboarded by an administrator, with their first warehouse. |
+| SELLER_UPDATE                  | Seller Update                  | The commercial identity of a seller was modified. **Inferred** (DOMINIO 3, "incorporación y mantenimiento"). |
 
 ### Warehouse Operations
 
 | Code                    | Name                    | Description                            |
 | ----------------------- | ----------------------- | -------------------------------------- |
 | WAREHOUSE_REGISTRATION  | Warehouse Registration  | A warehouse was registered.            |
+| WAREHOUSE_UPDATE        | Warehouse Update        | The information of a warehouse was modified. **Inferred** (OBJ-04, "Controlar la información de las bodegas"). |
 
 ### Catalog Operations
 
 | Code                     | Name                     | Description                                          |
 | ------------------------ | ------------------------ | ---------------------------------------------------- |
 | PRODUCT_REGISTRATION     | Product Registration     | A product was registered by its seller.              |
+| PRODUCT_UPDATE           | Product Update           | The commercial information or the variants of a product were modified. **Inferred** (Sección 5, "registrar y administrar sus productos"). |
 | PRODUCT_PUBLICATION      | Product Publication      | A product was published to the public catalog.       |
 | PRODUCT_SUSPENSION       | Product Suspension       | A product was temporarily hidden from the catalog.   |
 | PRODUCT_DISCONTINUATION  | Product Discontinuation  | A product was permanently removed from active sale.  |
 
 ### Inventory Operations
 
-| Code                    | Name                    | Description                                                  |
-| ----------------------- | ----------------------- | ------------------------------------------------------------ |
-| INVENTORY_INBOUND       | Inventory Inbound       | Stock entered a warehouse.                                   |
-| INVENTORY_RESERVATION   | Inventory Reservation   | Stock was reserved for an order.                             |
-| INVENTORY_SALE_OUTBOUND | Inventory Sale Outbound | Stock left a warehouse due to a confirmed sale.              |
-| INVENTORY_ADJUSTMENT    | Inventory Adjustment    | Stock quantity was manually corrected.                       |
-| INVENTORY_RETURN        | Inventory Return        | Stock re-entered a warehouse due to an approved return.      |
+| Code                          | Name                          | Description                                                  |
+| ----------------------------- | ----------------------------- | ------------------------------------------------------------ |
+| INVENTORY_INBOUND             | Inventory Inbound             | Stock entered a warehouse.                                   |
+| INVENTORY_RESERVATION         | Inventory Reservation         | Stock was reserved for an order.                             |
+| INVENTORY_RESERVATION_RELEASE | Inventory Reservation Release | Reserved stock returned to available stock because its order was cancelled. **Inferred**; see `InventoryMovementType.RESERVATION_RELEASE`. |
+| INVENTORY_SALE_OUTBOUND       | Inventory Sale Outbound       | Stock left a warehouse due to a confirmed sale.              |
+| INVENTORY_ADJUSTMENT          | Inventory Adjustment          | Stock quantity was manually corrected.                       |
+| INVENTORY_RETURN              | Inventory Return              | Stock re-entered a warehouse due to an approved return.      |
+| INVENTORY_STATUS_CHANGE       | Inventory Status Change       | Stock was marked as damaged or returned to available. **Inferred** (Sección 11, "marcado como 'Dañado'"). |
 
 ### Cart Operations
 
 | Code                     | Name                     | Description                                          |
 | ------------------------ | ------------------------ | ---------------------------------------------------- |
 | CART_ITEM_ADDITION       | Cart Item Addition       | A product variant was added to a cart.               |
+| CART_ITEM_UPDATE         | Cart Item Update         | The quantity of a cart line was modified. **Inferred** (OBJ-07, "Gestionar el carrito de compras"). |
 | CART_ITEM_REMOVAL        | Cart Item Removal        | A product variant was removed from a cart.           |
 | CART_CONFIRMATION        | Cart Confirmation        | A cart was confirmed, producing an order.            |
 
@@ -550,7 +567,7 @@ The values are grouped by the business area they belong to. Each value correspon
 | ORDER_PAYMENT_CONFIRMATION | Order Payment Confirmation | Payment for an order was confirmed and the order became paid.  |
 | ORDER_DISPATCH             | Order Dispatch             | The order was dispatched, following its first shipment.        |
 | ORDER_DELIVERY             | Order Delivery             | Every shipment of the order was delivered; the order is closed. |
-| ORDER_CANCELLATION         | Order Cancellation         | The order was terminated without completing delivery.          |
+| ORDER_CANCELLATION         | Order Cancellation         | The order was terminated before its payment was confirmed.     |
 
 ### Payment Operations
 
@@ -558,7 +575,8 @@ The values are grouped by the business area they belong to. Each value correspon
 | -------------------- | -------------------- | ------------------------------------------------------ |
 | PAYMENT_REGISTRATION | Payment Registration | A payment attempt was registered against an order.     |
 | PAYMENT_APPROVAL     | Payment Approval     | A payment attempt was validated successfully.          |
-| PAYMENT_REJECTION    | Payment Rejection    | A payment attempt was refused or failed.               |
+| PAYMENT_REJECTION    | Payment Rejection    | A payment attempt was refused during validation.       |
+| PAYMENT_FAILURE      | Payment Failure      | A payment attempt could not be completed due to a processing error. **Inferred**: `PaymentStatus` distinguishes `REJECTED` from `FAILED` because a refusal and an incident have different business meanings, and the operation catalog must preserve that distinction. |
 
 ### Billing Operations
 
