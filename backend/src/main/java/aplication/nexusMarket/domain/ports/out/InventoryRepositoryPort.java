@@ -18,5 +18,7 @@ public interface InventoryRepositoryPort {
 
     boolean existsByVariant(ProductVariant variant);
 
+    List<Inventory> findAll();
+
     void update(Inventory inventory);
 }
