@@ -596,8 +596,8 @@ Only new variants can be added.
 domain/
 ├── models/
 │   ├── Product.java                   initializeDraft, isPublished, publish, suspend, discontinue, updateDetails, addVariant, requiresInventory
-│   ├── PhysicalProduct.java           requiresInventory = true
-│   └── DigitalProduct.java            requiresInventory = false
+│   ├── PhysicalProduct.java           requiresInventory() returns true
+│   └── DigitalProduct.java            requiresInventory() returns false
 ├── exceptions/
 │   └── InvalidProductException.java
 ├── ports/out/
