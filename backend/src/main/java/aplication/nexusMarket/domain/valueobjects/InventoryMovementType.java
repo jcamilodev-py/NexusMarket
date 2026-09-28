@@ -9,6 +9,9 @@ import lombok.Getter;
  * {@code Inventory} holds the resulting current quantities.
  *
  * <p>Source: DOMINIO 6 - "Movimientos: Ingreso, Reserva, Salida por venta, Ajuste y Devolucion".
+ * RESERVATION_RELEASE is inferred: cancelling an unpaid order moves reserved units back to
+ * available stock, every quantity change must be a movement, and ADJUSTMENT means a manual
+ * correction rather than the undoing of a reservation.
  */
 @Getter
 public enum InventoryMovementType implements DomainCatalog {
@@ -17,6 +20,8 @@ public enum InventoryMovementType implements DomainCatalog {
             "Stock entering the warehouse."),
     RESERVATION("RESERVATION", "Reservation",
             "Stock reserved for a pending order."),
+    RESERVATION_RELEASE("RESERVATION_RELEASE", "Reservation Release",
+            "Reserved stock returned to available stock because its order was cancelled."),
     SALE_OUTBOUND("SALE_OUTBOUND", "Sale Outbound",
             "Stock leaving the warehouse due to a confirmed sale."),
     ADJUSTMENT("ADJUSTMENT", "Adjustment",
