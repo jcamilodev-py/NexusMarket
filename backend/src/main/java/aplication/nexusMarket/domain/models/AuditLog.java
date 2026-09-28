@@ -1,9 +1,11 @@
 package aplication.nexusMarket.domain.models;
 
+import aplication.nexusMarket.domain.exceptions.InvalidAuditLogException;
 import aplication.nexusMarket.domain.valueobjects.AffectedEntityType;
 import aplication.nexusMarket.domain.valueobjects.OperationType;
 import aplication.nexusMarket.domain.valueobjects.SystemRole;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.Getter;
@@ -49,4 +51,25 @@ public class AuditLog {
 
     /** Flexible document containing operation-specific information. */
     private Map<String, Object> details = new HashMap<>();
+
+    /**
+     * Derives the audit record of an operation. The date is copied rather than taken again so both
+     * records state the same moment, and the role is read now so it reflects execution time.
+     */
+    public static AuditLog fromOperation(Operation operation, Map<String, Object> details) {
+        if (operation == null || operation.getPerformedBy() == null) {
+            throw new InvalidAuditLogException("An operation with its performing user must be provided.");
+        }
+        AuditLog auditLog = new AuditLog();
+        auditLog.operationType = operation.getOperationType();
+        auditLog.operationDate = operation.getExecutionDate();
+        auditLog.performedBy = operation.getPerformedBy();
+        auditLog.userRole = operation.getPerformedBy().getRole();
+        auditLog.affectedEntityType = operation.getAffectedEntityType();
+        auditLog.affectedEntityId = operation.getAffectedEntityId();
+        auditLog.details = details == null
+                ? Collections.emptyMap()
+                : Collections.unmodifiableMap(new HashMap<>(details));
+        return auditLog;
+    }
 }
