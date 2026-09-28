@@ -686,7 +686,7 @@ Every entity holding a monetary amount also holds its currency: `Product`, `Orde
 
 Represents the proof of identity that a participant presents in order to authenticate: the email address that identifies them and the password that proves it.
 
-`Credentials` is the only Value Object of this domain that is not a business catalog. It does not inherit from `DomainCatalog`, because it has no controlled set of values, no business `code`, and no `name` to display: each instance is simply the pair of values supplied at login.
+Unlike the catalogs above, `Credentials` is not a business catalog. It does not inherit from `DomainCatalog`, because it has no controlled set of values, no business `code`, and no `name` to display: each instance is simply the pair of values a participant supplies.
 
 **Design decision — why a Value Object and not a `User`.** The banking reference authenticates by passing a `User` that carries the username and the password. In NexusMarket that is not possible: `User` is abstract, and at login time the participant's role — and therefore the specialization to instantiate — is not yet known. Passing the email and the password as two loose `String` parameters would contradict the rule that services receive Domain Models or Value Objects rather than primitive values. A dedicated Value Object keeps that rule while stating precisely what authentication needs and nothing more.
 
