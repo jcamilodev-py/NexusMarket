@@ -6,7 +6,7 @@ Value Objects represent immutable concepts within the NexusMarket domain.
 
 Unlike Entities, Value Objects do not have their own identity. They are defined entirely by their values and are used to encapsulate controlled business concepts, improve domain expressiveness, and prevent the use of primitive values or scattered string literals throughout the application.
 
-The marketplace domain uses Value Objects for business catalogs such as roles, statuses, product types, movement types, operation types, affected entity types, and currencies, and for the `Credentials` a participant presents to authenticate.
+The marketplace domain uses Value Objects for business catalogs such as roles, statuses, product types, movement types, operation types, affected entity types, and currencies, for the `Credentials` a participant presents to authenticate, and for the period and consolidated figures of the administrative reports.
 
 All business catalogs inherit from `DomainCatalog`.
 
@@ -35,6 +35,9 @@ DomainCatalog (Abstract)
 └── Currency
 
 Credentials            (not a catalog; see its own section)
+ReportPeriod           (not a catalog; see Report Value Objects)
+SalesSummary           (not a catalog; see Report Value Objects)
+ReturnSummary          (not a catalog; see Report Value Objects)
 ```
 
 ---
@@ -709,6 +712,51 @@ When `Credentials` accompanies a new `User` at registration, its `email` must be
 
 ---
 
+# Report Value Objects
+
+## Description
+
+The administrative reports of OBJ-12 (`reporting-services.md`) take a date range and return consolidated figures. Neither is an entity — they have no identity, are never persisted, and are defined entirely by their values — so both are modeled as Value Objects. Like `Credentials`, they are not catalogs and do not inherit from `DomainCatalog`.
+
+**Source:** Inferred with the reports themselves, from OBJ-12 ("Consolidar información administrativa para consulta") and Sección 3.1 ("Consulta de reportes administrativos"). Modeling them as Value Objects rather than as loose dates and generic maps keeps the rule that controlled business values are never represented by primitives or arbitrary structures.
+
+## ReportPeriod
+
+| Attribute | Type      | Description                                       |
+| --------- | --------- | ------------------------------------------------- |
+| from      | LocalDate | First day of the period, inclusive. Mandatory.    |
+| to        | LocalDate | Last day of the period, inclusive. Mandatory; not before `from`. |
+
+## SalesSummary
+
+One consolidated line of the sales report.
+
+| Attribute   | Type        | Description                                                |
+| ----------- | ----------- | ---------------------------------------------------------- |
+| status      | OrderStatus | Status of the orders summarized.                           |
+| currency    | Currency    | Currency of the amounts summarized.                        |
+| orderCount  | int         | Number of orders with that status and currency.            |
+| totalAmount | BigDecimal  | Sum of their `totalAmount`.                                |
+
+## ReturnSummary
+
+One consolidated line of the returns and refunds report.
+
+| Attribute      | Type         | Description                                                           |
+| -------------- | ------------ | --------------------------------------------------------------------- |
+| status         | ReturnStatus | Status of the return requests summarized.                             |
+| currency       | Currency     | Currency of the orders those requests belong to.                      |
+| requestCount   | int          | Number of return requests with that status and currency.              |
+| refundedAmount | BigDecimal   | Sum of the refunds of those requests that were actually `PROCESSED`.  |
+
+## Characteristics
+
+* Immutable; equality by value.
+* Amounts are always paired with their currency and never added across currencies.
+* The summaries are computed by the Value Objects themselves from the entities, so the aggregation rules belong to the Domain.
+
+---
+
 # Primitive Enumerations
 
 The following concepts would be represented as simple enumerations, because they contain fixed technical values and do not require business catalog metadata such as `code`, `name`, or `description`.
@@ -725,7 +773,7 @@ Approval outcomes — which the banking reference models as a primitive `Approva
 
 ## Inheritance
 
-All business catalogs inherit from `DomainCatalog`, which guarantees that every controlled value carries a `code`, a `name`, and a `description`. `Credentials` is the only Value Object outside that hierarchy, because it is not a catalog.
+All business catalogs inherit from `DomainCatalog`, which guarantees that every controlled value carries a `code`, a `name`, and a `description`. `Credentials` and the report Value Objects — `ReportPeriod`, `SalesSummary`, and `ReturnSummary` — are outside that hierarchy, because they are not catalogs.
 
 ## Immutability
 
