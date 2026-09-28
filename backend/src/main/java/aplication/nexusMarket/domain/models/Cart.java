@@ -1,5 +1,6 @@
 package aplication.nexusMarket.domain.models;
 
+import aplication.nexusMarket.domain.exceptions.InvalidBuyerException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -35,4 +36,15 @@ public class Cart {
 
     /** Date and time the cart was created. Inferred. */
     private LocalDateTime creationDate;
+
+    /** A new cart belongs to exactly one buyer and starts empty. */
+    public static Cart openFor(Buyer buyer) {
+        if (buyer == null || buyer.getUserId() == null) {
+            throw new InvalidBuyerException("A cart can only be opened for a registered buyer.");
+        }
+        Cart cart = new Cart();
+        cart.buyer = buyer;
+        cart.creationDate = LocalDateTime.now();
+        return cart;
+    }
 }
