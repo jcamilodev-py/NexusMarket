@@ -6,7 +6,7 @@ Value Objects represent immutable concepts within the NexusMarket domain.
 
 Unlike Entities, Value Objects do not have their own identity. They are defined entirely by their values and are used to encapsulate controlled business concepts, improve domain expressiveness, and prevent the use of primitive values or scattered string literals throughout the application.
 
-The marketplace domain uses Value Objects for business catalogs such as roles, statuses, product types, movement types, operation types, affected entity types, and currencies.
+The marketplace domain uses Value Objects for business catalogs such as roles, statuses, product types, movement types, operation types, affected entity types, and currencies, and for the `Credentials` a participant presents to authenticate.
 
 All business catalogs inherit from `DomainCatalog`.
 
@@ -33,6 +33,8 @@ DomainCatalog (Abstract)
 ├── OperationType
 ├── AffectedEntityType
 └── Currency
+
+Credentials            (not a catalog; see its own section)
 ```
 
 ---
@@ -675,6 +677,36 @@ Every entity holding a monetary amount also holds its currency: `Product`, `Orde
 
 ---
 
+# Credentials
+
+## Description
+
+Represents the proof of identity that a participant presents in order to authenticate: the email address that identifies them and the password that proves it.
+
+`Credentials` is the only Value Object of this domain that is not a business catalog. It does not inherit from `DomainCatalog`, because it has no controlled set of values, no business `code`, and no `name` to display: each instance is simply the pair of values supplied at login.
+
+**Design decision — why a Value Object and not a `User`.** The banking reference authenticates by passing a `User` that carries the username and the password. In NexusMarket that is not possible: `User` is abstract, and at login time the participant's role — and therefore the specialization to instantiate — is not yet known. Passing the email and the password as two loose `String` parameters would contradict the rule that services receive Domain Models or Value Objects rather than primitive values. A dedicated Value Object keeps that rule while stating precisely what authentication needs and nothing more.
+
+**Design decision — never persisted.** `Credentials` exists only as the input of the **Login** service. The password it carries is compared with `User.passwordHash` through an Output Port and then discarded; it is never stored, returned, logged, or included in an audit record.
+
+## Attributes
+
+**Source:** DOMINIO 1 — the email is the "Medio principal de acceso y comunicación", and the domain is "la base de autenticación e identificación"; RG-01 ("Toda operación debe ejecutarse por un usuario autenticado"). The password is inferred for the same reason as `User.passwordHash` in the *Domain Model*: the email identifies who is accessing, and a secret known only to that user is needed to prove it.
+
+| Attribute | Type   | Description                                                        |
+| --------- | ------ | ------------------------------------------------------------------ |
+| email     | String | Email address of the user who is authenticating. Must not be blank. |
+| password  | String | Plain password supplied by the user. Must not be blank. Never persisted. |
+
+## Characteristics
+
+* Immutable.
+* Equality is determined by value.
+* Both attributes are mandatory and must not be blank.
+* Its textual representation never reveals the password.
+
+---
+
 # Primitive Enumerations
 
 The following concepts would be represented as simple enumerations, because they contain fixed technical values and do not require business catalog metadata such as `code`, `name`, or `description`.
@@ -691,7 +723,7 @@ Approval outcomes — which the banking reference models as a primitive `Approva
 
 ## Inheritance
 
-All business catalogs inherit from `DomainCatalog`, which guarantees that every controlled value carries a `code`, a `name`, and a `description`.
+All business catalogs inherit from `DomainCatalog`, which guarantees that every controlled value carries a `code`, a `name`, and a `description`. `Credentials` is the only Value Object outside that hierarchy, because it is not a catalog.
 
 ## Immutability
 
@@ -759,6 +791,8 @@ AuditLog.operationType          : OperationType
 AuditLog.userRole               : SystemRole
 AuditLog.affectedEntityType     : AffectedEntityType
 ```
+
+`Credentials` is referenced by no entity: it is the input of the **Login** service only.
 
 ## Traceability to the Specification
 
