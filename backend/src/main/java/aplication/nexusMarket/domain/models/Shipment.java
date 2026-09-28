@@ -1,5 +1,8 @@
 package aplication.nexusMarket.domain.models;
 
+import aplication.nexusMarket.domain.exceptions.InvalidShipmentException;
+import aplication.nexusMarket.domain.exceptions.InvalidStatusTransitionException;
+import aplication.nexusMarket.domain.valueobjects.OrderStatus;
 import aplication.nexusMarket.domain.valueobjects.ShipmentStatus;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -46,4 +49,49 @@ public class Shipment {
 
     /** Confirmation of this date is what advances the order towards DELIVERED. */
     private LocalDateTime deliveryDate;
+
+    /**
+     * A shipment exists only for a paid order; it may also be created once the order is DISPATCHED,
+     * for lines stocked in a warehouse other than the first shipment's.
+     */
+    public static Shipment prepare(Order order, Warehouse originWarehouse, List<OrderItem> items,
+                                   LogisticsOperator logisticsOperator) {
+        if (order == null || !(OrderStatus.PAID.equals(order.getOrderStatus())
+                || OrderStatus.DISPATCHED.equals(order.getOrderStatus()))) {
+            throw new InvalidShipmentException("Shipments exist only for paid orders.");
+        }
+        if (items == null || items.isEmpty()) {
+            throw new InvalidShipmentException("The warehouse holds no unshipped physical line of this order.");
+        }
+        Shipment shipment = new Shipment();
+        shipment.order = order;
+        shipment.originWarehouse = originWarehouse;
+        shipment.items = new ArrayList<>(items);
+        shipment.logisticsOperator = logisticsOperator;
+        shipment.shipmentStatus = ShipmentStatus.PENDING;
+        return shipment;
+    }
+
+    public void dispatch() {
+        requireStatus("dispatch", ShipmentStatus.PENDING);
+        this.shipmentStatus = ShipmentStatus.IN_TRANSIT;
+        this.dispatchDate = LocalDateTime.now();
+    }
+
+    public void confirmDelivery() {
+        requireStatus("confirm the delivery of", ShipmentStatus.IN_TRANSIT);
+        this.shipmentStatus = ShipmentStatus.DELIVERED;
+        this.deliveryDate = LocalDateTime.now();
+    }
+
+    public boolean isDelivered() {
+        return ShipmentStatus.DELIVERED.equals(shipmentStatus);
+    }
+
+    private void requireStatus(String action, ShipmentStatus expected) {
+        if (!expected.equals(shipmentStatus)) {
+            throw new InvalidStatusTransitionException("Cannot " + action + " a shipment in status "
+                    + (shipmentStatus == null ? "none" : shipmentStatus.getCode()) + ".");
+        }
+    }
 }
