@@ -17,7 +17,9 @@ import lombok.Setter;
  *
  * <p>Business rules: a shipment is created only after the order reaches PAID; it never contains
  * lines referencing a DigitalProduct; every physical order item belongs to exactly one shipment;
- * dispatching generates an InventoryMovement of type SALE_OUTBOUND; the order reaches DELIVERED only
+ * it only carries lines whose sourceInventory belongs to its originWarehouse; dispatching generates
+ * an InventoryMovement of type SALE_OUTBOUND over each line's sourceInventory; the order reaches
+ * DELIVERED only
  * when every shipment has been delivered.
  *
  * <p>Source: OBJ-10; Seccion 4.1; Seccion 6.1 steps 7-8; Matriz de Responsabilidades.
