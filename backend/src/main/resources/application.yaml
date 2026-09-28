@@ -1,3 +1,23 @@
+server:
+  port: 8080
+
 spring:
   application:
     name: nexusMarket
+
+  # Relational store: every aggregate except the audit trail.
+  datasource:
+    url: jdbc:mysql://localhost:3306/nexusmarket_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root
+    password: root_password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    open-in-view: false
+
+  # Audit store: AuditLog only. Boot 4 rejects the old spring.data.mongodb.* connection keys.
+  mongodb:
+    uri: mongodb://localhost:27017/nexusmarket_audit
