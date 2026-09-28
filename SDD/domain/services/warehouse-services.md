@@ -332,7 +332,7 @@ Defines the persistence operations required over warehouses of both kinds. Imple
 ```java
 public interface WarehouseRepositoryPort {
 
-    Warehouse save(Warehouse warehouse);
+    <T extends Warehouse> T save(T warehouse);
 
     Optional<Warehouse> findById(Warehouse warehouse);
 
