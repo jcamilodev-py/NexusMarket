@@ -1,5 +1,6 @@
 package aplication.nexusMarket.domain.models;
 
+import aplication.nexusMarket.domain.exceptions.InvalidOperationException;
 import aplication.nexusMarket.domain.valueobjects.AffectedEntityType;
 import aplication.nexusMarket.domain.valueobjects.OperationType;
 import java.time.LocalDateTime;
@@ -44,4 +45,28 @@ public class Operation {
 
     /** Identifier of the specific instance affected by the operation. */
     private String affectedEntityId;
+
+    /**
+     * Builds a complete operation stamped with the current moment. Every operation has a performing
+     * user, since NexusMarket has no system-triggered operations (RG-01).
+     */
+    public static Operation register(OperationType operationType, User performedBy,
+                                     AffectedEntityType affectedEntityType, String affectedEntityId) {
+        if (operationType == null) {
+            throw new InvalidOperationException("Operation type must be provided.");
+        }
+        if (performedBy == null) {
+            throw new InvalidOperationException("Performing user must be provided.");
+        }
+        if (affectedEntityType == null || affectedEntityId == null || affectedEntityId.isBlank()) {
+            throw new InvalidOperationException("Affected entity type and identifier must be provided.");
+        }
+        Operation operation = new Operation();
+        operation.operationType = operationType;
+        operation.performedBy = performedBy;
+        operation.affectedEntityType = affectedEntityType;
+        operation.affectedEntityId = affectedEntityId;
+        operation.executionDate = LocalDateTime.now();
+        return operation;
+    }
 }
