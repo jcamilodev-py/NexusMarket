@@ -18,7 +18,8 @@ import lombok.Setter;
  * <p>Business rules: may only be created by the buyer who owns the order, and only over an order
  * that has been delivered; the returned quantity of a line may never exceed the quantity purchased,
  * discounting quantities already returned; an approved request over physical items generates an
- * InventoryMovement of type RETURN; it originates a {@link Refund} only when approved.
+ * InventoryMovement of type RETURN over the sourceInventory of each returned line, so units go back
+ * to the warehouse they were sold from; it originates a {@link Refund} only when approved.
  *
  * <p>Source: OBJ-11; Matriz de Responsabilidades; DOMINIO 6.
  */
