@@ -1,5 +1,6 @@
 package aplication.nexusMarket.domain.models;
 
+import aplication.nexusMarket.domain.exceptions.InvalidInventoryException;
 import aplication.nexusMarket.domain.valueobjects.InventoryMovementType;
 import java.time.LocalDateTime;
 import lombok.Getter;
@@ -35,6 +36,24 @@ public class InventoryMovement {
     /** Date and time the movement occurred. Inferred. */
     private LocalDateTime movementDate;
 
-    /** User who triggered the movement: a Seller or a LogisticsOperator. Inferred. */
+    /**
+     * User whose action produced the movement: a Seller or LogisticsOperator for INBOUND and
+     * ADJUSTMENT, the buyer or operator whose order, shipment or return triggered the others.
+     */
     private User performedBy;
+
+    /** Positive quantity, except for ADJUSTMENT, which carries the sign of the correction. */
+    public static InventoryMovement record(Inventory inventory, InventoryMovementType movementType,
+                                           int quantity, User performedBy) {
+        if (inventory == null || movementType == null || performedBy == null) {
+            throw new InvalidInventoryException("A movement needs its inventory, type and performing user.");
+        }
+        InventoryMovement movement = new InventoryMovement();
+        movement.inventory = inventory;
+        movement.movementType = movementType;
+        movement.quantity = quantity;
+        movement.performedBy = performedBy;
+        movement.movementDate = LocalDateTime.now();
+        return movement;
+    }
 }
