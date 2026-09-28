@@ -1,6 +1,8 @@
 package aplication.nexusMarket.domain.models;
 
+import aplication.nexusMarket.domain.exceptions.InvalidInvoiceException;
 import aplication.nexusMarket.domain.valueobjects.Currency;
+import aplication.nexusMarket.domain.valueobjects.OrderStatus;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Getter;
@@ -39,4 +41,18 @@ public class Invoice {
 
     /** Currency of the invoice, taken from the order. */
     private Currency currency;
+
+    /** Issued only once the order is PAID, with the order's own buyer, amount and currency. */
+    public static Invoice issueFor(Order order) {
+        if (order == null || !OrderStatus.PAID.equals(order.getOrderStatus())) {
+            throw new InvalidInvoiceException("An invoice is issued only for a paid order.");
+        }
+        Invoice invoice = new Invoice();
+        invoice.order = order;
+        invoice.buyer = order.getBuyer();
+        invoice.totalAmount = order.getTotalAmount();
+        invoice.currency = order.getCurrency();
+        invoice.issueDate = LocalDateTime.now();
+        return invoice;
+    }
 }
