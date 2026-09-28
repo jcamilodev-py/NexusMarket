@@ -687,7 +687,9 @@ Represents the proof of identity that a participant presents in order to authent
 
 **Design decision — why a Value Object and not a `User`.** The banking reference authenticates by passing a `User` that carries the username and the password. In NexusMarket that is not possible: `User` is abstract, and at login time the participant's role — and therefore the specialization to instantiate — is not yet known. Passing the email and the password as two loose `String` parameters would contradict the rule that services receive Domain Models or Value Objects rather than primitive values. A dedicated Value Object keeps that rule while stating precisely what authentication needs and nothing more.
 
-**Design decision — never persisted.** `Credentials` exists only as the input of the **Login** service. The password it carries is compared with `User.passwordHash` through an Output Port and then discarded; it is never stored, returned, logged, or included in an audit record.
+**Design decision — never persisted.** `Credentials` exists only as the input of the services that verify or establish a user's password: **Login**, and the registration services **Register Staff User**, **Register Buyer**, and **Register Seller**. At login, the password is compared with `User.passwordHash` through an Output Port; at registration, it is turned into that hash. In both cases it is then discarded: it is never stored, returned, logged, or included in an audit record.
+
+When `Credentials` accompanies a new `User` at registration, its `email` must be the same as `User.email`, since a single address both identifies the participant and gives them access (DOMINIO 1).
 
 ## Attributes
 
@@ -792,7 +794,7 @@ AuditLog.userRole               : SystemRole
 AuditLog.affectedEntityType     : AffectedEntityType
 ```
 
-`Credentials` is referenced by no entity: it is the input of the **Login** service only.
+`Credentials` is referenced by no entity: it is only the input of the services that verify or establish a password.
 
 ## Traceability to the Specification
 
