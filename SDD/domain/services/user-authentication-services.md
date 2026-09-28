@@ -180,6 +180,7 @@ The rules that concern a single user are enforced by the `User` entity itself, s
 | `boolean hasRole(SystemRole role)` | Compares the user's single role (RG-02) without exposing the comparison to every caller.                  |
 | `void changeStatus(UserStatus newStatus)` | Rejects a missing status and a change to the status the user already holds; otherwise applies it. |
 | `void assignPasswordHash(String passwordHash)` | Rejects a blank hash, so a user can never be persisted without one.                           |
+| `void validateIdentity()`         | `fullName`, `identificationNumber`, and `email` are present and not blank. Shared by every registration service. |
 
 Services never change the status of an existing user nor assign `passwordHash` through plain setters; they use these methods. The only direct assignment of `status` is the initial `ACTIVE` of a user being registered, which is not a change but the starting state.
 
@@ -220,9 +221,10 @@ The requesting user must be present, `ACTIVE`, and hold the role `ADMINISTRATOR`
 ### User Information
 
 * `newUser` must be present.
-* `fullName` must not be blank (DOMINIO 1, "No vacío").
-* `identificationNumber` must not be blank (Sección 11).
-* `email` must not be blank (DOMINIO 1).
+* `User.validateIdentity()`:
+  * `fullName` must not be blank (DOMINIO 1, "No vacío").
+  * `identificationNumber` must not be blank (Sección 11).
+  * `email` must not be blank (DOMINIO 1).
 
 ### Role
 
