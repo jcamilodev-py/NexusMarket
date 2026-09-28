@@ -15,10 +15,11 @@ import lombok.Getter;
  * <pre>
  * CART -&gt; PENDING_PAYMENT -&gt; PAID -&gt; DISPATCHED -&gt; DELIVERED
  *              |               |
- *              +-&gt; CANCELLED   +-&gt; CANCELLED
- *                              |
- *                              +-&gt; DELIVERED  (digital-only orders)
+ *              +-&gt; CANCELLED   +-&gt; DELIVERED  (digital-only orders)
  * </pre>
+ *
+ * <p>An order can only be cancelled while in PENDING_PAYMENT: once paid, the only reimbursement
+ * path the specification describes is a Refund originated by a return (OBJ-11).
  *
  * <p>Source: DOMINIO 7; Seccion 11. CANCELLED is inferred: an order whose payment never reaches
  * APPROVED requires a terminal state.
@@ -38,7 +39,7 @@ public enum OrderStatus implements DomainCatalog {
     DELIVERED("DELIVERED", "Delivered / Finished",
             "Every shipment has been delivered; the order is closed and can no longer be modified."),
     CANCELLED("CANCELLED", "Cancelled",
-            "Order terminated without completing delivery.");
+            "Order terminated before its payment was confirmed.");
 
     private final String code;
     private final String name;
