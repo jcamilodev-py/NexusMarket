@@ -181,7 +181,7 @@ The rules that concern a single user are enforced by the `User` entity itself, s
 | `void changeStatus(UserStatus newStatus)` | Rejects a missing status and a change to the status the user already holds; otherwise applies it. |
 | `void assignPasswordHash(String passwordHash)` | Rejects a blank hash, so a user can never be persisted without one.                           |
 
-Services never assign `status` or `passwordHash` through plain setters; they use these methods.
+Services never change the status of an existing user nor assign `passwordHash` through plain setters; they use these methods. The only direct assignment of `status` is the initial `ACTIVE` of a user being registered, which is not a change but the starting state.
 
 ---
 
