@@ -757,12 +757,12 @@ The movement is the historical record of what happened to the stock, while `Inve
 | movementType | InventoryMovementType | Type of movement: Inbound, Reservation, Reservation Release, Sale Outbound, Adjustment, or Return.                                                                                                                                |
 | quantity     | Integer               | Quantity involved in the movement.                                                                                                                                                                                                |
 | movementDate | LocalDateTime         | Date and time the movement occurred. Inferred: any traceable business event requires a timestamp, consistent with how the specification treats the timing of the order lifecycle.                                                  |
-| performedBy  | User                  | User who triggered the movement. Inferred from the Matriz de Responsabilidades, where inventory administration is explicitly shared between Vendedor and Operador Logístico, so the movement must record which of them acted.      |
+| performedBy  | User                  | User whose action produced the movement. Inferred from the Matriz de Responsabilidades, where inventory administration is explicitly shared between Vendedor and Operador Logístico, so the movement must record which of them acted. For the movements derived from orders and returns, it is the user whose business action triggered them. |
 
 ## Relationships
 
 * An `InventoryMovement` affects exactly one `Inventory` record.
-* An `InventoryMovement` is performed by exactly one `User`, who is either a `Seller` or a `LogisticsOperator`.
+* An `InventoryMovement` is performed by exactly one `User`. Movements registered directly — `INBOUND` and `ADJUSTMENT` — are performed by a `Seller` or a `LogisticsOperator`. Movements derived from other business actions record the user whose action triggered them: the `Buyer` who places or cancels an order (`RESERVATION`, `RESERVATION_RELEASE`), and the `LogisticsOperator` who dispatches a shipment or receives a return (`SALE_OUTBOUND`, `RETURN`).
 * An `InventoryMovement` of type `RESERVATION`, `RESERVATION_RELEASE`, or `SALE_OUTBOUND` originates from an `Order`.
 * An `InventoryMovement` of type `RETURN` originates from an approved `ReturnRequest`.
 
@@ -776,7 +776,12 @@ A movement may never leave availableQuantity or reservedQuantity
 negative.                                                             (DOMINIO 6)
 
 Only a Seller (over their own products) or a LogisticsOperator may
-register an InventoryMovement.                                        (Matriz de Responsabilidades, RG-03)
+register an INBOUND or ADJUSTMENT movement directly.                  (Matriz de Responsabilidades, RG-03)
+The remaining movement types are never registered directly: they are
+the consequence of placing or cancelling an order, dispatching a
+shipment, or receiving a return, and record the user who performed
+that action. The Matriz de Responsabilidades governs the
+administration of inventory, not the purchases that consume it.
 ```
 
 ---
