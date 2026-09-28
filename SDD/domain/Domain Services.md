@@ -66,7 +66,7 @@ This service defines the business rule of *who* may authenticate. The technical 
 
 **Performed by:** Any registered user, without prior authentication.
 
-**Inferred:** requires a `passwordHash` attribute on `User`, which the Domain Model does not yet declare. Justified by DOMINIO 1, which describes this domain as "la base de autenticación e identificación" and the email as the "medio principal de acceso", and by RG-01, which requires an authenticated user for every operation.
+**Inferred:** relies on the `passwordHash` attribute of `User`, itself inferred in the *Domain Model*. Justified by DOMINIO 1, which describes this domain as "la base de autenticación e identificación" and the email as the "medio principal de acceso", and by RG-01, which requires an authenticated user for every operation.
 
 ## Consult User
 
@@ -188,11 +188,9 @@ Updates the information of an existing warehouse, such as its address.
 
 Registers a new physical or digital product in the catalog, together with at least one variant.
 
-A product with no real variation is registered with a single default variant. The product is not visible in the public catalog until it is published.
+A product with no real variation is registered with a single default variant. Every product is registered in `DRAFT` and is not visible in the public catalog until it is published, because Sección 6.1 registers the product (step 2) and its inventory (step 3) before publishing it (step 4). `DRAFT` is an inferred value; see `ProductStatus` in *Domain Value Objects*.
 
 **Performed by:** Seller, over their own products.
-
-**Pending decision:** the initial status of a registered product. `ProductStatus` defines only `PUBLISHED`, `SUSPENDED`, and `DISCONTINUED`, and the lifecycle starts at `PUBLISHED`; however, Sección 6.1 places product registration (step 2) and inventory registration (step 3) *before* publication (step 4). The resolution is documented in `catalog-services.md`.
 
 ## Update Product
 
@@ -206,7 +204,7 @@ Price changes never alter existing orders, because each order line holds the pri
 
 Makes a product visible in the public catalog by changing its status to `PUBLISHED`.
 
-A physical product can only be published when every one of its variants has inventory registered in at least one warehouse. A suspended product returns to the catalog through this same service.
+A draft product becomes visible for the first time through this service, and a suspended product returns to the catalog through it. A physical product can only be published when every one of its variants has inventory registered in at least one warehouse.
 
 **Performed by:** Seller, over their own products.
 
@@ -218,7 +216,7 @@ Temporarily removes a published product from the public catalog by changing its 
 
 ## Discontinue Product
 
-Permanently removes a product from active sale by changing its status to `DISCONTINUED`. The discontinuation is terminal.
+Permanently removes a product from active sale by changing its status to `DISCONTINUED`. A draft product that will never be sold can be discontinued directly. The discontinuation is terminal.
 
 **Performed by:** Seller, over their own products.
 
@@ -268,25 +266,25 @@ Marks an inventory record as `DAMAGED` or returns it to `AVAILABLE`. Damaged sto
 
 Reserves the stock required by each physical line of a newly placed order, moving units from the available quantity to the reserved quantity.
 
-Stock that does not exist, that is insufficient, or that is marked as `DAMAGED` cannot be reserved.
+Each line is reserved in full from a single inventory record with enough stock, which the line keeps as its `sourceInventory`. Stock that does not exist, that is insufficient, or that is marked as `DAMAGED` cannot be reserved; if no single record can cover a line, the order cannot be placed.
 
 **Performed by:** Internal — triggered by **Place Order**.
 
 ## Release Inventory Reservation
 
-Returns the units reserved by an order to the available quantity when that order is cancelled.
+Returns the units reserved by an order to the available quantity of each line's `sourceInventory` when that order is cancelled, recording a movement of type `RESERVATION_RELEASE`.
 
 **Performed by:** Internal — triggered by **Cancel Order**.
 
 ## Register Sale Outbound
 
-Removes from the reserved quantity the units that physically leave the warehouse when a shipment is dispatched.
+Removes from the reserved quantity of each line's `sourceInventory` the units that physically leave the warehouse when a shipment is dispatched.
 
 **Performed by:** Internal — triggered by **Dispatch Shipment**.
 
 ## Register Inventory Return
 
-Returns to the available quantity the units of a physical product received back from a buyer.
+Returns to the available quantity of each returned line's `sourceInventory` the units of a physical product received back from a buyer, so they go back to the warehouse they were sold from.
 
 **Performed by:** Internal — triggered by **Complete Return**.
 
@@ -364,7 +362,9 @@ Retrieves a list of orders filtered by buyer, by seller, or by status, according
 
 ## Cancel Order
 
-Cancels an order in state `PENDING_PAYMENT` or `PAID`, releasing every inventory reservation it holds. An order can never be cancelled after dispatch.
+Cancels an order in state `PENDING_PAYMENT`, releasing every inventory reservation it holds.
+
+An order can no longer be cancelled once paid: the buyer's money has been collected, and the only reimbursement path the specification describes is a refund originated by a return (OBJ-11).
 
 **Performed by:** The Buyer who placed it. Inferred: the specification does not describe cancellation; `CANCELLED` itself is an inferred state (see `OrderStatus` in *Domain Value Objects*), and the buyer is the party of the commercial commitment.
 
@@ -430,7 +430,7 @@ Retrieves the invoice of an order.
 
 ## Create Shipment
 
-Creates a shipment for a paid order, grouping the physical lines that leave from one origin warehouse. Every physical line of an order belongs to exactly one shipment, and digital lines never belong to any.
+Creates a shipment for a paid order, grouping the physical lines whose `sourceInventory` belongs to one origin warehouse. Every physical line of an order belongs to exactly one shipment, and digital lines never belong to any.
 
 **Performed by:** Logistics Operator.
 
@@ -601,34 +601,34 @@ Every service that changes the state of a business entity produces at least one 
 | Register Staff User             | `USER_REGISTRATION`                                    | `USER`             |
 | Change User Status              | `USER_STATUS_CHANGE`                                   | `USER`             |
 | Register Seller                 | `SELLER_REGISTRATION`, `WAREHOUSE_REGISTRATION`        | `SELLER`, `WAREHOUSE` |
-| Update Seller Information       | **Pending** — proposed `SELLER_UPDATE`                 | `SELLER`           |
+| Update Seller Information       | `SELLER_UPDATE`                                        | `SELLER`           |
 | Register Buyer                  | `BUYER_REGISTRATION`                                   | `USER`             |
-| Update Buyer Addresses          | **Pending** — proposed `BUYER_PROFILE_UPDATE`          | `USER`             |
-| Change Buyer Commercial Status  | **Pending** — proposed `BUYER_COMMERCIAL_STATUS_CHANGE` | `USER`            |
+| Update Buyer Addresses          | `BUYER_PROFILE_UPDATE`                                 | `USER`             |
+| Change Buyer Commercial Status  | `BUYER_COMMERCIAL_STATUS_CHANGE`                       | `USER`             |
 | Register Marketplace Warehouse  | `WAREHOUSE_REGISTRATION`                               | `WAREHOUSE`        |
 | Register Seller Warehouse       | `WAREHOUSE_REGISTRATION`                               | `WAREHOUSE`        |
-| Update Warehouse                | **Pending** — proposed `WAREHOUSE_UPDATE`              | `WAREHOUSE`        |
+| Update Warehouse                | `WAREHOUSE_UPDATE`                                     | `WAREHOUSE`        |
 | Register Product                | `PRODUCT_REGISTRATION`                                 | `PRODUCT`          |
-| Update Product                  | **Pending** — proposed `PRODUCT_UPDATE`                | `PRODUCT`          |
+| Update Product                  | `PRODUCT_UPDATE`                                       | `PRODUCT`          |
 | Publish Product                 | `PRODUCT_PUBLICATION`                                  | `PRODUCT`          |
 | Suspend Product                 | `PRODUCT_SUSPENSION`                                   | `PRODUCT`          |
 | Discontinue Product             | `PRODUCT_DISCONTINUATION`                              | `PRODUCT`          |
 | Register Inventory Inbound      | `INVENTORY_INBOUND`                                    | `INVENTORY`        |
 | Adjust Inventory                | `INVENTORY_ADJUSTMENT`                                 | `INVENTORY`        |
-| Change Inventory Status         | **Pending** — proposed `INVENTORY_STATUS_CHANGE`       | `INVENTORY`        |
+| Change Inventory Status         | `INVENTORY_STATUS_CHANGE`                              | `INVENTORY`        |
 | Reserve Inventory               | `INVENTORY_RESERVATION`                                | `INVENTORY`        |
-| Release Inventory Reservation   | **Pending** — proposed `INVENTORY_RESERVATION_RELEASE` | `INVENTORY`        |
+| Release Inventory Reservation   | `INVENTORY_RESERVATION_RELEASE`                        | `INVENTORY`        |
 | Register Sale Outbound          | `INVENTORY_SALE_OUTBOUND`                              | `INVENTORY`        |
 | Register Inventory Return       | `INVENTORY_RETURN`                                     | `INVENTORY`        |
 | Add Item to Cart                | `CART_ITEM_ADDITION`                                   | `CART`             |
-| Update Cart Item Quantity       | **Pending** — proposed `CART_ITEM_UPDATE`              | `CART`             |
+| Update Cart Item Quantity       | `CART_ITEM_UPDATE`                                     | `CART`             |
 | Remove Item from Cart           | `CART_ITEM_REMOVAL`                                    | `CART`             |
 | Place Order                     | `CART_CONFIRMATION`, `ORDER_PLACEMENT`                 | `CART`, `ORDER`    |
 | Cancel Order                    | `ORDER_CANCELLATION`                                   | `ORDER`            |
 | Confirm Order Payment           | `ORDER_PAYMENT_CONFIRMATION`                           | `ORDER`            |
 | Mark Order Dispatched           | `ORDER_DISPATCH`                                       | `ORDER`            |
 | Mark Order Delivered            | `ORDER_DELIVERY`                                       | `ORDER`            |
-| Register Payment                | `PAYMENT_REGISTRATION`, then `PAYMENT_APPROVAL` or `PAYMENT_REJECTION`; a `FAILED` attempt is **Pending** — proposed `PAYMENT_FAILURE` | `PAYMENT` |
+| Register Payment                | `PAYMENT_REGISTRATION`, then `PAYMENT_APPROVAL`, `PAYMENT_REJECTION`, or `PAYMENT_FAILURE` | `PAYMENT` |
 | Issue Invoice                   | `INVOICE_ISSUANCE`                                     | `INVOICE`          |
 | Create Shipment                 | `SHIPMENT_CREATION`                                    | `SHIPMENT`         |
 | Dispatch Shipment               | `SHIPMENT_DISPATCH`                                    | `SHIPMENT`         |
@@ -640,9 +640,7 @@ Every service that changes the state of a business entity produces at least one 
 | Process Refund                  | `REFUND_PROCESSING`                                    | `REFUND`           |
 | Reject Refund                   | `REFUND_REJECTION`                                     | `REFUND`           |
 
-Every value of `OperationType` defined in *Domain Value Objects* is produced by at least one service of this catalog.
-
-Rows marked **Pending** identify services that change the state of an entity but have no `OperationType` value in the current catalog. Each one requires a new value in *Domain Value Objects* before its subdomain document is written.
+Every value of `OperationType` defined in *Domain Value Objects* is produced by at least one service of this catalog, and every service in this table has a value. Nine of those values — `SELLER_UPDATE`, `BUYER_PROFILE_UPDATE`, `BUYER_COMMERCIAL_STATUS_CHANGE`, `WAREHOUSE_UPDATE`, `PRODUCT_UPDATE`, `INVENTORY_STATUS_CHANGE`, `INVENTORY_RESERVATION_RELEASE`, `CART_ITEM_UPDATE`, and `PAYMENT_FAILURE` — were added to *Domain Value Objects* when this catalog was defined, because these services change the state of an entity and no existing value described them.
 
 ---
 
