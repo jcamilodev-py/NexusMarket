@@ -53,10 +53,13 @@ The connection is configured in `application.yaml` (`spring.datasource.*`, `spri
 
 ```text
 adapters/persistence/
+├── CatalogCodes.java                        catalog <-> code conversion shared by every mapper
+├── Identifiers.java                         UUID assignment on first save
 ├── jpa/                                     Relational persistence (MySQL)
 │   ├── entities/                            JPA entities and embeddables (repository DTOs)
 │   ├── mappers/                             Domain <-> Entity mappers
 │   ├── repositories/                        Spring Data JPA repositories
+│   ├── JpaReferenceResolver.java            rebuilds user and warehouse references (section 7)
 │   └── <Aggregate>JpaAdapter.java           implements <Aggregate>RepositoryPort
 │
 └── mongodb/                                 Audit persistence (MongoDB)
@@ -140,23 +143,28 @@ Unique constraints enforce, at database level too, the rules the Domain validate
 
 ## 7. Reference Resolution
 
-Each adapter rebuilds the references its port promises (`Output-ports.md`) by calling other Output Ports — never other adapters' repositories — so each aggregate is always loaded by the adapter that owns it:
+Each adapter rebuilds the references its port promises (`Output-ports.md`) by calling other Output Ports, so each aggregate is loaded by the adapter that owns it. There are two deliberate exceptions:
+
+* **Users and warehouses** are resolved by `JpaReferenceResolver`, a small component that reads the `users` and `warehouses` tables through their mappers. `User` and `Warehouse` are abstract, so there is no instance to pass to their ports as a lookup key, and neither holds further references to resolve.
+* **Shipments of an order** are read by `OrderJpaAdapter` directly from the `shipments` table. `ShipmentJpaAdapter` resolves orders through `OrderRepositoryPort`, so resolving shipments through `ShipmentRepositoryPort` in the other direction would make the two adapters depend on each other.
 
 | Adapter                    | Resolves                                                                                   | Through                                               |
 | -------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
 | `UserJpaAdapter`           | The specialization of each user                                                            | its own mapper                                        |
 | `BuyerJpaAdapter`          | The buyer's active cart, as a reference                                                    | its own mapper                                        |
 | `SellerJpaAdapter`         | The seller's warehouses                                                                    | the warehouses repository, owned by the seller itself |
-| `WarehouseJpaAdapter`      | The owner of a seller warehouse                                                            | `UserRepositoryPort`                                  |
-| `ProductJpaAdapter`        | The seller                                                                                 | `UserRepositoryPort`                                  |
-| `InventoryJpaAdapter`      | The variant with its product and seller; the warehouse                                     | `ProductRepositoryPort`, `WarehouseRepositoryPort`    |
-| `InventoryMovementJpaAdapter` | The performing user                                                                     | `UserRepositoryPort`                                  |
+| `WarehouseJpaAdapter`      | The owner of a seller warehouse                                                            | `JpaReferenceResolver`                                |
+| `ProductJpaAdapter`        | The seller                                                                                 | `JpaReferenceResolver`                                |
+| `InventoryJpaAdapter`      | The variant with its product and seller; the warehouse                                     | `ProductRepositoryPort`, `JpaReferenceResolver`       |
+| `InventoryMovementJpaAdapter` | The performing user                                                                     | `JpaReferenceResolver`                                |
 | `CartJpaAdapter`           | The buyer; each line's variant                                                             | `BuyerRepositoryPort`, `ProductRepositoryPort`        |
-| `OrderJpaAdapter`          | The buyer; each line's variant and source inventory; payments, invoice, and shipments      | `BuyerRepositoryPort`, `ProductRepositoryPort`, `InventoryRepositoryPort`, `UserRepositoryPort`, `WarehouseRepositoryPort` |
-| `ShipmentJpaAdapter`       | The whole order, returning the shipment instance held by that order                        | `OrderRepositoryPort`                                 |
+| `OrderJpaAdapter`          | The buyer; each line's variant and source inventory; payments, invoice, and shipments      | `BuyerRepositoryPort`, `ProductRepositoryPort`, `InventoryRepositoryPort`, `PaymentRepositoryPort`, `InvoiceRepositoryPort`, the shipments table, `JpaReferenceResolver` |
+| `ShipmentJpaAdapter`       | The whole order, returning the shipment instance held by that order                        | `OrderRepositoryPort`, `JpaReferenceResolver`         |
 | `ReturnRequestJpaAdapter`  | The order; each returned line, matched to the order's own line                             | `OrderRepositoryPort`                                 |
-| `RefundJpaAdapter`         | The return request; the administrator who decided it                                       | `ReturnRequestRepositoryPort`, `UserRepositoryPort`   |
-| `OperationJpaAdapter`      | The performing user                                                                        | `UserRepositoryPort`                                  |
+| `RefundJpaAdapter`         | The return request; the administrator who decided it                                       | `ReturnRequestRepositoryPort`, `JpaReferenceResolver` |
+| `OperationJpaAdapter`      | The performing user                                                                        | `JpaReferenceResolver`                                |
+
+`save` returns the same instance it received, now identified, rather than a copy rebuilt from the database: the services keep working on the object graph they built — for example Place Order, which saves the order and then reserves stock line by line on the same `OrderItem` objects.
 
 `ShipmentJpaAdapter.findById` returns the shipment **instance held by its order**, not a separate copy: dispatching or delivering a shipment changes that object, and the order decides its own status from the same objects (`Order.isReadyForDelivery()`).
 
@@ -229,7 +237,7 @@ public class InventoryJpaAdapter implements InventoryRepositoryPort {
 
     private final SpringDataInventoryRepository inventoryRepository;
     private final ProductRepositoryPort productRepositoryPort;
-    private final WarehouseRepositoryPort warehouseRepositoryPort;
+    private final JpaReferenceResolver referenceResolver;
 
     @Override
     public Optional<Inventory> findById(Inventory inventory) {
@@ -291,7 +299,7 @@ Each repository call runs in its own transaction for now. The business transacti
 2. Entities and documents are persistence DTOs; Domain Models are never annotated with JPA or MongoDB annotations.
 3. Catalogs are stored as their codes; references to other aggregates, as identifiers.
 4. Lines without identity are stored as element collections of their parent.
-5. Adapters resolve references only through Output Ports.
+5. Adapters resolve references through Output Ports, except users and warehouses (`JpaReferenceResolver`) and an order's shipments, for the reasons given in section 7.
 6. Identifiers are UUIDs assigned by the adapter on first save.
 7. Only `AuditLog` is stored in MongoDB.
 8. No adapter deletes records; immutable records are never updated.
