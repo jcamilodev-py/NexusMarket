@@ -20,8 +20,9 @@ import lombok.Setter;
  *
  * <p>Business rules: an order is created only from a confirmed cart, by a buyer whose
  * commercialStatus is ENABLED; an order in DELIVERED can no longer be modified (Seccion 11); an
- * order may reach CANCELLED from PENDING_PAYMENT or PAID, never after dispatch, and cancelling
- * releases every inventory reservation it holds.
+ * order may reach CANCELLED only from PENDING_PAYMENT, because once paid the only reimbursement
+ * path is a refund originated by a return (OBJ-11), and cancelling releases every inventory
+ * reservation it holds.
  *
  * <p>Mixed orders: digital lines are delivered as soon as the order reaches PAID; physical lines
  * generate one or more shipments; the order reaches DISPATCHED when its first shipment is
