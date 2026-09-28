@@ -69,6 +69,19 @@ public abstract class User {
         this.status = newStatus;
     }
 
+    /** Identity data every registration requires (DOMINIO 1 "No vacio"; Seccion 11). */
+    public void validateIdentity() {
+        if (fullName == null || fullName.isBlank()) {
+            throw new InvalidUserException("Full name must not be blank.");
+        }
+        if (identificationNumber == null || identificationNumber.isBlank()) {
+            throw new InvalidUserException("Identification number must not be blank.");
+        }
+        if (email == null || email.isBlank()) {
+            throw new InvalidUserException("Email must not be blank.");
+        }
+    }
+
     public void assignPasswordHash(String newPasswordHash) {
         if (newPasswordHash == null || newPasswordHash.isBlank()) {
             throw new InvalidUserException("Password hash must be provided.");
