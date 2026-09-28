@@ -1,5 +1,8 @@
 package aplication.nexusMarket.domain.models;
 
+import aplication.nexusMarket.domain.exceptions.InvalidStatusTransitionException;
+import aplication.nexusMarket.domain.exceptions.InvalidUserException;
+import aplication.nexusMarket.domain.exceptions.InvalidUserStatusException;
 import aplication.nexusMarket.domain.valueobjects.SystemRole;
 import aplication.nexusMarket.domain.valueobjects.UserStatus;
 import lombok.Getter;
@@ -41,4 +44,35 @@ public abstract class User {
     private SystemRole role;
 
     private UserStatus status;
+
+    /** Only an ACTIVE user may authenticate or operate (RG-01). */
+    public boolean isActive() {
+        return UserStatus.ACTIVE.equals(status);
+    }
+
+    public boolean hasRole(SystemRole expectedRole) {
+        return expectedRole != null && expectedRole.equals(role);
+    }
+
+    /**
+     * Rejects a change to the status already held: an operation that changes nothing must not leave
+     * a trace in the audit log. The specification defines no other transition restriction.
+     */
+    public void changeStatus(UserStatus newStatus) {
+        if (newStatus == null) {
+            throw new InvalidUserStatusException("Target user status must be provided.");
+        }
+        if (newStatus.equals(status)) {
+            throw new InvalidStatusTransitionException(
+                    "User already has status " + newStatus.getCode() + ".");
+        }
+        this.status = newStatus;
+    }
+
+    public void assignPasswordHash(String newPasswordHash) {
+        if (newPasswordHash == null || newPasswordHash.isBlank()) {
+            throw new InvalidUserException("Password hash must be provided.");
+        }
+        this.passwordHash = newPasswordHash;
+    }
 }
