@@ -18,4 +18,9 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class PhysicalProduct extends Product {
+
+    @Override
+    public boolean requiresInventory() {
+        return true;
+    }
 }
