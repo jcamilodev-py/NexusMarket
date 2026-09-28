@@ -117,7 +117,8 @@ Cart
 Order
    ├── buyer ────────────────────────────────> Buyer
    ├── contains ─────────────────────────────> OrderItem
-   │                                                └── variant ──> ProductVariant
+   │                                                ├── variant ─────────> ProductVariant
+   │                                                └── sourceInventory ─> Inventory
    ├── settled by ───────────────────────────> Payment
    ├── billed by ────────────────────────────> Invoice
    ├── fulfilled by ─────────────────────────> Shipment
@@ -171,6 +172,7 @@ This class cannot be instantiated directly.
 | identificationNumber | String     | National identity document number of the participant. Unique across the platform. Inferred from Sección 11 ("El documento de identidad y correo electrónico deben ser únicos en la plataforma"), which requires this datum even though DOMINIO 1 does not list it separately. |
 | fullName             | String     | Official full name of the user.                                                                                                                                                                                                                                           |
 | email                | String     | Primary means of access and communication. Unique across the platform.                                                                                                                                                                                                    |
+| passwordHash         | String     | One-way hash of the user's password, verified at login. Inferred: DOMINIO 1 describes this domain as "la base de autenticación e identificación" and the email as the "medio principal de acceso", and RG-01 requires an authenticated user for every operation; the email identifies who is accessing, so a secret known only to that user is needed to prove it. The plain password is never stored. |
 | role                 | SystemRole | Business role that defines the user's responsibilities and permissions. Exactly one per user.                                                                                                                                                                              |
 | status               | UserStatus | Current operational condition of the user, such as Active or Blocked.                                                                                                                                                                                                     |
 
@@ -189,6 +191,8 @@ Each user holds exactly one role within the system.                   (RG-02)
 No participant may administer information outside their own role.     (RG-03)
 identificationNumber must be unique across the platform.              (Sección 11)
 email must be unique across the platform.                             (Sección 11)
+Only a user whose status is ACTIVE may authenticate.                  (RG-01)
+The password is stored only as a hash, never in plain form.
 ```
 
 ## Examples of Generated Operations
@@ -245,6 +249,8 @@ refunds that belong to them.                                          (DOMINIO 2
 ## Examples of Generated Operations
 
 * `BUYER_REGISTRATION`
+* `BUYER_PROFILE_UPDATE`
+* `BUYER_COMMERCIAL_STATUS_CHANGE`
 * `ORDER_PLACEMENT`
 * `RETURN_REQUEST_CREATION`
 
@@ -297,6 +303,7 @@ A Seller may only manage their own products and their own inventory.  (RG-03)
 ## Examples of Generated Operations
 
 * `SELLER_REGISTRATION`
+* `SELLER_UPDATE`
 * `PRODUCT_REGISTRATION`
 * `PRODUCT_PUBLICATION`
 * `INVENTORY_ADJUSTMENT`
@@ -440,6 +447,7 @@ Inventory is always linked to exactly one Warehouse.                  (DOMINIO 6
 ## Examples of Generated Operations
 
 * `WAREHOUSE_REGISTRATION`
+* `WAREHOUSE_UPDATE`
 
 ---
 
@@ -526,7 +534,7 @@ This class cannot be instantiated directly.
 | price         | BigDecimal              | Sale price of the product. Inferred: a commercial catalog and a payment flow (Sección 6.1 steps 5–6) cannot function without a price.                                                                                                                               |
 | currency      | Currency                | Currency in which `price` is expressed. Inferred: see the currency rationale in **Domain Design Rules**.                                                                                                                                                            |
 | variants      | List\<ProductVariant\>  | Sellable variations of the product: colour, size, model, and so on. Contains at least one element.                                                                                                                                                                  |
-| productStatus | ProductStatus           | Published, Suspended, or Discontinued.                                                                                                                                                                                                                             |
+| productStatus | ProductStatus           | Draft, Published, Suspended, or Discontinued. Every product is registered in `DRAFT`; see `ProductStatus` in *Domain Value Objects*.                                                                                                                                 |
 
 ## Relationships
 
@@ -548,13 +556,19 @@ price is modeled at variant level.
 
 Only the owning Seller may modify a Product.                          (RG-03)
 
+Every Product is registered in DRAFT and becomes visible only when
+published.                                                            (Sección 6.1 steps 2–4)
+
 Only a Product whose productStatus is PUBLISHED is visible in the
 public catalog and may be added to a Cart.                            (DOMINIO 5, Sección 6.1 step 4)
+
+A DISCONTINUED Product can no longer be modified.
 ```
 
 ## Examples of Generated Operations
 
 * `PRODUCT_REGISTRATION`
+* `PRODUCT_UPDATE`
 * `PRODUCT_PUBLICATION`
 * `PRODUCT_SUSPENSION`
 * `PRODUCT_DISCONTINUATION`
@@ -696,7 +710,7 @@ Inventory is distributed: it must always be linked to exactly one variant and on
 
 * An `Inventory` record refers to exactly one `ProductVariant` and exactly one `Warehouse`.
 * An `Inventory` record is modified only through `InventoryMovement` instances, which provide its traceability.
-* An `Inventory` record supplies the stock consumed by `OrderItem` reservations and released by `ReturnItem` returns.
+* An `Inventory` record supplies the stock reserved by `OrderItem` lines, each of which records it as its `sourceInventory`, and receives back the units released by cancelled orders and returned through `ReturnItem` lines.
 
 ## Business Rules
 
@@ -716,9 +730,11 @@ recorded as an InventoryMovement.                                     (DOMINIO 6
 
 * `INVENTORY_INBOUND`
 * `INVENTORY_RESERVATION`
+* `INVENTORY_RESERVATION_RELEASE`
 * `INVENTORY_SALE_OUTBOUND`
 * `INVENTORY_ADJUSTMENT`
 * `INVENTORY_RETURN`
+* `INVENTORY_STATUS_CHANGE`
 
 ---
 
@@ -738,7 +754,7 @@ The movement is the historical record of what happened to the stock, while `Inve
 | ------------ | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | identifier   | String                | Uniquely identifies the movement.                                                                                                                                                                                                 |
 | inventory    | Inventory             | Inventory record affected by this movement.                                                                                                                                                                                       |
-| movementType | InventoryMovementType | Type of movement: Inbound, Reservation, Sale Outbound, Adjustment, or Return.                                                                                                                                                     |
+| movementType | InventoryMovementType | Type of movement: Inbound, Reservation, Reservation Release, Sale Outbound, Adjustment, or Return.                                                                                                                                |
 | quantity     | Integer               | Quantity involved in the movement.                                                                                                                                                                                                |
 | movementDate | LocalDateTime         | Date and time the movement occurred. Inferred: any traceable business event requires a timestamp, consistent with how the specification treats the timing of the order lifecycle.                                                  |
 | performedBy  | User                  | User who triggered the movement. Inferred from the Matriz de Responsabilidades, where inventory administration is explicitly shared between Vendedor and Operador Logístico, so the movement must record which of them acted.      |
@@ -747,7 +763,7 @@ The movement is the historical record of what happened to the stock, while `Inve
 
 * An `InventoryMovement` affects exactly one `Inventory` record.
 * An `InventoryMovement` is performed by exactly one `User`, who is either a `Seller` or a `LogisticsOperator`.
-* An `InventoryMovement` of type `RESERVATION` or `SALE_OUTBOUND` originates from an `Order`.
+* An `InventoryMovement` of type `RESERVATION`, `RESERVATION_RELEASE`, or `SALE_OUTBOUND` originates from an `Order`.
 * An `InventoryMovement` of type `RETURN` originates from an approved `ReturnRequest`.
 
 ## Business Rules
@@ -811,6 +827,7 @@ reservation occurs when the Order is created.                         (DOMINIO 6
 ## Examples of Generated Operations
 
 * `CART_ITEM_ADDITION`
+* `CART_ITEM_UPDATE`
 * `CART_ITEM_REMOVAL`
 * `CART_CONFIRMATION`
 
@@ -901,10 +918,12 @@ whose commercialStatus is ENABLED.                                    (DOMINIO 2
 An Order in state DELIVERED can no longer be modified under any
 circumstance.                                                         (Sección 11)
 
-An Order may reach CANCELLED from PENDING_PAYMENT or from PAID, and
-never after dispatch. Cancelling an Order releases every inventory
-reservation it holds. CANCELLED is inferred; see OrderStatus in
-Domain Value Objects.
+An Order may reach CANCELLED only from PENDING_PAYMENT. Once paid,
+the buyer's money has been collected, and the only reimbursement path
+the specification describes is a Refund originated by a return
+(OBJ-11). Cancelling an Order releases every inventory reservation it
+holds through movements of type RESERVATION_RELEASE. CANCELLED is
+inferred; see OrderStatus in Domain Value Objects.
 
 totalAmount always equals the sum of the subtotals of orderItems,
 computed at creation time and never recalculated afterwards.
@@ -914,6 +933,10 @@ buyer's addresses never alter an existing Order.
 
 Creating an Order reserves inventory for every line referencing a
 variant of a PhysicalProduct.                                         (DOMINIO 6)
+Each such line is reserved in full from a single Inventory record
+with enough AVAILABLE stock, and that record is kept in
+OrderItem.sourceInventory. If no single record can cover the line,
+the Order cannot be created.
 
 Mixed orders — physical and digital lines in the same Order:
   · digital lines are considered delivered as soon as the Order
@@ -953,11 +976,13 @@ Represents a single confirmed product variant line within an order, with the qua
 | quantity  | Integer        | Quantity of the variant requested. Must be greater than zero.                                                                                                          |
 | unitPrice | BigDecimal     | Price of the product at the moment the order was confirmed. Kept independent from `Product.price` so that later price changes do not alter historical orders.          |
 | subtotal  | BigDecimal     | `quantity * unitPrice`.                                                                                                                                                |
+| sourceInventory | Inventory? | Inventory record from which the line was reserved. Absent for lines referencing a `DigitalProduct`. Inferred: stock of the same variant may exist in several warehouses, and the reserved units must later leave from — or return to — the same record that reserved them; without this reference, dispatch could not know which warehouse to deduct from, and shipments could not be grouped by origin warehouse. |
 
 ## Relationships
 
 * An `OrderItem` belongs to exactly one `Order`.
 * An `OrderItem` references exactly one `ProductVariant`.
+* An `OrderItem` referencing a variant of a `PhysicalProduct` references exactly one `Inventory` as its `sourceInventory`, which belongs to the same variant.
 * An `OrderItem` referencing a variant of a `PhysicalProduct` is included in exactly one `Shipment`.
 * An `OrderItem` may be referenced by zero or more `ReturnItem` instances.
 
@@ -971,6 +996,10 @@ recalculated, so that historical orders remain faithful to the
 conditions accepted by the buyer.
 
 An OrderItem is never modified after the Order is created.            (Sección 11)
+
+sourceInventory is set when the line is reserved, only for variants
+of a PhysicalProduct, and always refers to an Inventory record of the
+same variant.
 ```
 
 ---
@@ -1030,6 +1059,7 @@ payment occurred but does not describe the means used.
 * `PAYMENT_REGISTRATION`
 * `PAYMENT_APPROVAL`
 * `PAYMENT_REJECTION`
+* `PAYMENT_FAILURE`
 
 ---
 
@@ -1118,8 +1148,11 @@ A Shipment never contains lines referencing a DigitalProduct.         (DOMINIO 5
 
 Every physical OrderItem of an Order belongs to exactly one Shipment.
 
+A Shipment only carries OrderItem lines whose sourceInventory belongs
+to its originWarehouse.
+
 Dispatching a Shipment generates an InventoryMovement of type
-SALE_OUTBOUND over the corresponding Inventory records.               (DOMINIO 6)
+SALE_OUTBOUND over the sourceInventory of each of its lines.          (DOMINIO 6)
 
 The Order reaches DELIVERED only when every one of its Shipment
 instances has been delivered.                                         (Sección 6.1 step 8)
@@ -1176,7 +1209,9 @@ purchased in the corresponding OrderItem, discounting quantities
 already returned in previous requests.
 
 An approved ReturnRequest over physical items generates an
-InventoryMovement of type RETURN.                                     (DOMINIO 6)
+InventoryMovement of type RETURN over the sourceInventory of each
+returned OrderItem, so returned units go back to the warehouse they
+were sold from.                                                       (DOMINIO 6)
 
 A ReturnRequest originates a Refund only when it is approved.
 ```
