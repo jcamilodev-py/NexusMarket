@@ -21,4 +21,9 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class DigitalProduct extends Product {
+
+    @Override
+    public boolean requiresInventory() {
+        return false;
+    }
 }
