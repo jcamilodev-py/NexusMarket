@@ -1,9 +1,12 @@
 package aplication.nexusMarket.domain.models;
 
+import aplication.nexusMarket.domain.exceptions.InvalidPaymentException;
 import aplication.nexusMarket.domain.valueobjects.Currency;
+import aplication.nexusMarket.domain.valueobjects.OrderStatus;
 import aplication.nexusMarket.domain.valueobjects.PaymentStatus;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Set;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -43,4 +46,36 @@ public class Payment {
 
     /** Date and time the payment attempt was registered. Inferred. */
     private LocalDateTime paymentDate;
+
+    private static final Set<PaymentStatus> OUTCOMES =
+            Set.of(PaymentStatus.APPROVED, PaymentStatus.REJECTED, PaymentStatus.FAILED);
+
+    /** Always for the order's full amount: partial payments are not contemplated. */
+    public static Payment attemptFor(Order order) {
+        if (order == null || !OrderStatus.PENDING_PAYMENT.equals(order.getOrderStatus())) {
+            throw new InvalidPaymentException("Only an order pending payment accepts payment attempts.");
+        }
+        Payment payment = new Payment();
+        payment.order = order;
+        payment.amount = order.getTotalAmount();
+        payment.currency = order.getCurrency();
+        payment.paymentStatus = PaymentStatus.PENDING;
+        payment.paymentDate = LocalDateTime.now();
+        return payment;
+    }
+
+    /** A resolved attempt is final; a retry is a new Payment, so failed attempts stay on record. */
+    public void resolve(PaymentStatus outcome) {
+        if (!PaymentStatus.PENDING.equals(paymentStatus)) {
+            throw new InvalidPaymentException("The payment attempt is already resolved.");
+        }
+        if (!OUTCOMES.contains(outcome)) {
+            throw new InvalidPaymentException("A payment attempt resolves only as approved, rejected or failed.");
+        }
+        this.paymentStatus = outcome;
+    }
+
+    public boolean isApproved() {
+        return PaymentStatus.APPROVED.equals(paymentStatus);
+    }
 }
