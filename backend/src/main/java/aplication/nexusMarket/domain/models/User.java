@@ -32,6 +32,12 @@ public abstract class User {
     /** Primary means of access and communication. Unique across the platform (Seccion 11). */
     private String email;
 
+    /**
+     * One-way hash verified at login; the plain password is never stored. Inferred from DOMINIO 1
+     * ("base de autenticacion") and RG-01.
+     */
+    private String passwordHash;
+
     private SystemRole role;
 
     private UserStatus status;
