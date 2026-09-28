@@ -14,6 +14,9 @@ public interface ProductRepositoryPort {
 
     List<Product> findPublished();
 
+    /** Returns the variant with its product and the product's seller. */
+    Optional<ProductVariant> findVariantById(ProductVariant variant);
+
     boolean existsBySku(ProductVariant variant);
 
     void update(Product product);
