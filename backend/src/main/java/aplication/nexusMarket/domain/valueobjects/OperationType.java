@@ -14,7 +14,11 @@ import lombok.Getter;
  * recorded in the AuditLog.
  *
  * <p>Source: derived from the business events identified across the specification, so the AuditLog
- * covers the traceability scope required by OBJ-12 and Seccion 1.
+ * covers the traceability scope required by OBJ-12 and Seccion 1. BUYER_PROFILE_UPDATE,
+ * BUYER_COMMERCIAL_STATUS_CHANGE, SELLER_UPDATE, WAREHOUSE_UPDATE, PRODUCT_UPDATE,
+ * INVENTORY_RESERVATION_RELEASE, INVENTORY_STATUS_CHANGE, CART_ITEM_UPDATE and PAYMENT_FAILURE are
+ * inferred: each records a state change made by a Domain Services catalog service that no other
+ * value described.
  */
 @Getter
 public enum OperationType implements DomainCatalog {
@@ -26,16 +30,26 @@ public enum OperationType implements DomainCatalog {
             "The operational status of a user was modified."),
     BUYER_REGISTRATION("BUYER_REGISTRATION", "Buyer Registration",
             "A buyer was registered in the platform."),
+    BUYER_PROFILE_UPDATE("BUYER_PROFILE_UPDATE", "Buyer Profile Update",
+            "The delivery addresses of a buyer were modified."),
+    BUYER_COMMERCIAL_STATUS_CHANGE("BUYER_COMMERCIAL_STATUS_CHANGE", "Buyer Commercial Status Change",
+            "The commercial status of a buyer was modified."),
     SELLER_REGISTRATION("SELLER_REGISTRATION", "Seller Registration",
             "A seller was onboarded by an administrator, with their first warehouse."),
+    SELLER_UPDATE("SELLER_UPDATE", "Seller Update",
+            "The commercial identity of a seller was modified."),
 
     // --- Warehouse operations ---
     WAREHOUSE_REGISTRATION("WAREHOUSE_REGISTRATION", "Warehouse Registration",
             "A warehouse was registered."),
+    WAREHOUSE_UPDATE("WAREHOUSE_UPDATE", "Warehouse Update",
+            "The information of a warehouse was modified."),
 
     // --- Catalog operations ---
     PRODUCT_REGISTRATION("PRODUCT_REGISTRATION", "Product Registration",
             "A product was registered by its seller."),
+    PRODUCT_UPDATE("PRODUCT_UPDATE", "Product Update",
+            "The commercial information or the variants of a product were modified."),
     PRODUCT_PUBLICATION("PRODUCT_PUBLICATION", "Product Publication",
             "A product was published to the public catalog."),
     PRODUCT_SUSPENSION("PRODUCT_SUSPENSION", "Product Suspension",
@@ -48,16 +62,22 @@ public enum OperationType implements DomainCatalog {
             "Stock entered a warehouse."),
     INVENTORY_RESERVATION("INVENTORY_RESERVATION", "Inventory Reservation",
             "Stock was reserved for an order."),
+    INVENTORY_RESERVATION_RELEASE("INVENTORY_RESERVATION_RELEASE", "Inventory Reservation Release",
+            "Reserved stock returned to available stock because its order was cancelled."),
     INVENTORY_SALE_OUTBOUND("INVENTORY_SALE_OUTBOUND", "Inventory Sale Outbound",
             "Stock left a warehouse due to a confirmed sale."),
     INVENTORY_ADJUSTMENT("INVENTORY_ADJUSTMENT", "Inventory Adjustment",
             "Stock quantity was manually corrected."),
     INVENTORY_RETURN("INVENTORY_RETURN", "Inventory Return",
             "Stock re-entered a warehouse due to an approved return."),
+    INVENTORY_STATUS_CHANGE("INVENTORY_STATUS_CHANGE", "Inventory Status Change",
+            "Stock was marked as damaged or returned to available."),
 
     // --- Cart operations ---
     CART_ITEM_ADDITION("CART_ITEM_ADDITION", "Cart Item Addition",
             "A product variant was added to a cart."),
+    CART_ITEM_UPDATE("CART_ITEM_UPDATE", "Cart Item Update",
+            "The quantity of a cart line was modified."),
     CART_ITEM_REMOVAL("CART_ITEM_REMOVAL", "Cart Item Removal",
             "A product variant was removed from a cart."),
     CART_CONFIRMATION("CART_CONFIRMATION", "Cart Confirmation",
@@ -73,7 +93,7 @@ public enum OperationType implements DomainCatalog {
     ORDER_DELIVERY("ORDER_DELIVERY", "Order Delivery",
             "Every shipment of the order was delivered; the order is closed."),
     ORDER_CANCELLATION("ORDER_CANCELLATION", "Order Cancellation",
-            "The order was terminated without completing delivery."),
+            "The order was terminated before its payment was confirmed."),
 
     // --- Payment operations ---
     PAYMENT_REGISTRATION("PAYMENT_REGISTRATION", "Payment Registration",
@@ -81,7 +101,9 @@ public enum OperationType implements DomainCatalog {
     PAYMENT_APPROVAL("PAYMENT_APPROVAL", "Payment Approval",
             "A payment attempt was validated successfully."),
     PAYMENT_REJECTION("PAYMENT_REJECTION", "Payment Rejection",
-            "A payment attempt was refused or failed."),
+            "A payment attempt was refused during validation."),
+    PAYMENT_FAILURE("PAYMENT_FAILURE", "Payment Failure",
+            "A payment attempt could not be completed due to a processing error."),
 
     // --- Billing operations ---
     INVOICE_ISSUANCE("INVOICE_ISSUANCE", "Invoice Issuance",
